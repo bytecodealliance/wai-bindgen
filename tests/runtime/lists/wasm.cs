@@ -30,6 +30,8 @@ namespace ListsWorld {
             }
 
             TestInterop.ListParam(new byte[] { (byte)1, (byte)2, (byte)3, (byte)4 });
+            TestInterop.ListParam((new byte[] { (byte)1, (byte)2, (byte)3, (byte)4 }).AsSpan());
+            TestInterop.ListParam((new byte[] { (byte)1, (byte)2, (byte)3, (byte)4 }).AsMemory());
             TestInterop.ListParam2("foo");
             TestInterop.ListParam3(new List<String>() {
                 "foo",
