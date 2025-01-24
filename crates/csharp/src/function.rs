@@ -853,13 +853,27 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                 //TODO: wasm64
                 let align = self.interface_gen.csharp_gen.sizes.align(element).align_wasm32();
 
+                let (array_size, element_type) = crate::world_generator::dotnet_aligned_array(
+                    size,
+                    align,
+                );
+                let ret_area = self.locals.tmp("retArea");
+
                 self.needs_cleanup = true;
                 uwrite!(
                     self.src,
                     "
-                    var {buffer_size} = {size} * (nuint){list}.Count;
-                    var {address} = NativeMemory.AlignedAlloc({buffer_size}, {align});
-                    cleanups.Add(()=> NativeMemory.AlignedFree({address}));
+                    void* {address};
+                    if (({size} * {list}.Count) < 1024) {{
+                        var {ret_area} = stackalloc {element_type}[({array_size}*{list}.Count)+1];
+                        {address} = (void*)(((int){ret_area}) + ({align} - 1) & -{align});
+                    }} 
+                    else
+                    {{
+                        var {buffer_size} = {size} * (nuint){list}.Count;
+                        {address} = NativeMemory.AlignedAlloc({buffer_size}, {align});
+                        cleanups.Add(()=> NativeMemory.AlignedFree({address}));
+                    }}
 
                     for (int {index} = 0; {index} < {list}.Count; ++{index}) {{
                         {ty} {block_element} = {list}[{index}];
