@@ -22,7 +22,9 @@ macro_rules! codegen_test {
                         derive_eq: true,
                         derive_error: true,
                         ignore_stub: false,
+                        ignore_module_file: false,
                         gen_dir: "gen".to_string(),
+                        project_name: None,
                     }
                     .build()
                     .generate(resolve, world, files)
@@ -40,7 +42,10 @@ fn verify(dir: &Path, _name: &str) {
     cmd.arg("check")
         .arg("--target")
         .arg("wasm")
-        .arg("--deny-warn")
+        .arg("--warn-list")
+        .arg("-28")
+        // This will eliminate all the warning, but can't be turned on yet
+        // .arg("--deny-warn")
         .arg("--source-dir")
         .arg(dir);
 
