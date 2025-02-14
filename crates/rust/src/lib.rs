@@ -330,8 +330,8 @@ impl RustWasm {
             gen: self,
             sizes,
             resolve,
-            return_pointer_area_size: 0,
-            return_pointer_area_align: 0,
+            return_pointer_area_size: Default::default(),
+            return_pointer_area_align: Default::default(),
             needs_runtime_module: false,
         }
     }

@@ -10,9 +10,9 @@ use wit_bindgen_core::{
     abi::{self, AbiVariant, Bindgen, Bitcast, Instruction, LiftLower, WasmType},
     uwrite, uwriteln,
     wit_parser::{
-        Docs, Enum, Flags, FlagsRepr, Function, FunctionKind, Int, InterfaceId, Record, Resolve,
-        Result_, SizeAlign, Tuple, Type, TypeDef, TypeDefKind, TypeId, TypeOwner, Variant, WorldId,
-        WorldKey,
+        Alignment, ArchitectureSize, Docs, Enum, Flags, FlagsRepr, Function, FunctionKind, Int,
+        InterfaceId, Record, Resolve, Result_, SizeAlign, Tuple, Type, TypeDef, TypeDefKind,
+        TypeId, TypeOwner, Variant, WorldId, WorldKey,
     },
     Direction, Files, InterfaceGenerator as _, Ns, Source, WorldGenerator,
 };
@@ -53,8 +53,8 @@ struct InterfaceFragment {
 pub struct TeaVmJava {
     opts: Opts,
     name: String,
-    return_area_size: usize,
-    return_area_align: usize,
+    return_area_size: ArchitectureSize,
+    return_area_align: Alignment,
     tuple_counts: HashSet<usize>,
     needs_cleanup: bool,
     needs_result: bool,
@@ -345,9 +345,9 @@ impl WorldGenerator for TeaVmJava {
             );
         }
 
-        if self.return_area_align > 0 {
-            let size = self.return_area_size;
-            let align = self.return_area_align;
+        if !self.return_area_size.is_empty() {
+            let size = self.return_area_size.size_wasm32();
+            let align = self.return_area_align.align_wasm32();
 
             uwriteln!(
                 src,
@@ -1684,8 +1684,8 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                 assert!(block_results.is_empty());
 
                 let op = &operands[0];
-                let size = self.gen.gen.sizes.size(element).size_wasm32();
-                let align = self.gen.gen.sizes.align(element).align_wasm32();
+                let size = self.gen.gen.sizes.size(element);
+                let align = self.gen.gen.sizes.align(element);
                 let address = self.locals.tmp("address");
                 let ty = self.gen.type_name(element);
                 let index = self.locals.tmp("index");
@@ -1699,14 +1699,16 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                         int {base} = {address} + ({index} * {size});
                         {body}
                     }}
-                    "
+                    ",
+                    align = align.align_wasm32(),
+                    size = size.size_wasm32()
                 );
 
                 if realloc.is_none() {
                     self.cleanup.push(Cleanup {
                         address: address.clone(),
-                        size: format!("({op}).size() * {size}"),
-                        align,
+                        size: format!("({op}).size() * {size}", size = size.size_wasm32()),
+                        align: align.align_wasm32(),
                     });
                 }
 
@@ -1882,42 +1884,50 @@ impl Bindgen for FunctionBindgen<'_, '_> {
             | Instruction::PointerLoad { offset }
             | Instruction::LengthLoad { offset } => results.push(format!(
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).getInt()",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I32Load8U { offset } => results.push(format!(
                 "(((int) org.teavm.interop.Address.fromInt(({}) + {offset}).getByte()) & 0xFF)",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I32Load8S { offset } => results.push(format!(
                 "((int) org.teavm.interop.Address.fromInt(({}) + {offset}).getByte())",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I32Load16U { offset } => results.push(format!(
                 "(((int) org.teavm.interop.Address.fromInt(({}) + {offset}).getShort()) & 0xFFFF)",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I32Load16S { offset } => results.push(format!(
                 "((int) org.teavm.interop.Address.fromInt(({}) + {offset}).getShort())",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I64Load { offset } => results.push(format!(
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).getLong()",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::F32Load { offset } => results.push(format!(
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).getFloat()",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::F64Load { offset } => results.push(format!(
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).getDouble()",
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             )),
 
             Instruction::I32Store { offset }
@@ -1926,42 +1936,48 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putInt({});",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::I32Store8 { offset } => uwriteln!(
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putByte((byte) ({}));",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::I32Store16 { offset } => uwriteln!(
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putShort((short) ({}));",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::I64Store { offset } => uwriteln!(
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putLong({});",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::F32Store { offset } => uwriteln!(
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putFloat({});",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::F64Store { offset } => uwriteln!(
                 self.src,
                 "org.teavm.interop.Address.fromInt(({}) + {offset}).putDouble({});",
                 operands[1],
-                operands[0]
+                operands[0],
+                offset = offset.size_wasm32()
             ),
 
             Instruction::Malloc { .. } => unimplemented!(),
@@ -1970,7 +1986,9 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                 uwriteln!(
                     self.src,
                     "Memory.free(org.teavm.interop.Address.fromInt({}), {size}, {align});",
-                    operands[0]
+                    operands[0],
+                    size = size.size_wasm32(),
+                    align = align.align_wasm32()
                 )
             }
 
@@ -2063,7 +2081,7 @@ impl Bindgen for FunctionBindgen<'_, '_> {
         }
     }
 
-    fn return_pointer(&mut self, size: usize, align: usize) -> String {
+    fn return_pointer(&mut self, size: ArchitectureSize, align: Alignment) -> String {
         self.gen.gen.return_area_size = self.gen.gen.return_area_size.max(size);
         self.gen.gen.return_area_align = self.gen.gen.return_area_align.max(align);
         format!("{}RETURN_AREA", self.gen.gen.qualifier())

@@ -1,4 +1,4 @@
-use crate::bindgen::FunctionBindgen;
+use crate::bindgen::{FunctionBindgen, POINTER_SIZE_EXPRESSION};
 use crate::{
     int_repr, to_rust_ident, to_upper_camel_case, wasm_type, AsyncConfig, FnSig, Identifier,
     InterfaceName, Ownership, RuntimeItem, RustFlagsRepr, RustWasm,
@@ -21,8 +21,8 @@ pub struct InterfaceGenerator<'a> {
     pub(super) gen: &'a mut RustWasm,
     pub wasm_import_module: &'a str,
     pub resolve: &'a Resolve,
-    pub return_pointer_area_size: usize,
-    pub return_pointer_area_align: usize,
+    pub return_pointer_area_size: ArchitectureSize,
+    pub return_pointer_area_align: Alignment,
     pub(super) needs_runtime_module: bool,
 }
 
@@ -381,17 +381,29 @@ macro_rules! {macro_name} {{
         }
     }
 
+    pub fn align_area(&mut self, alignment: Alignment) {
+        match alignment {
+            Alignment::Pointer => uwriteln!(
+                self.src,
+                "#[cfg_attr(target_pointer_width=\"64\", repr(align(8)))]
+                    #[cfg_attr(target_pointer_width=\"32\", repr(align(4)))]"
+            ),
+            Alignment::Bytes(bytes) => {
+                uwriteln!(self.src, "#[repr(align({align}))]", align = bytes.get())
+            }
+        }
+    }
+
     pub fn finish(&mut self) -> String {
-        if self.return_pointer_area_align > 0 {
+        if !self.return_pointer_area_size.is_empty() {
+            uwriteln!(self.src,);
+            self.align_area(self.return_pointer_area_align);
             uwrite!(
                 self.src,
-                "\
-                    #[repr(align({align}))]
-                    struct _RetArea([::core::mem::MaybeUninit::<u8>; {size}]);
+                    "struct _RetArea([::core::mem::MaybeUninit::<u8>; {size}]);
                     static mut _RET_AREA: _RetArea = _RetArea([::core::mem::MaybeUninit::uninit(); {size}]);
 ",
-                align = self.return_pointer_area_align,
-                size = self.return_pointer_area_size,
+                size = self.return_pointer_area_size.format_term(POINTER_SIZE_EXPRESSION, true),
             );
         }
 
@@ -1053,14 +1065,14 @@ pub mod vtable{ordinal} {{
             uwriteln!(self.src, "let mut cleanup_list = {vec}::new();");
         }
         assert!(handle_decls.is_empty());
-        if import_return_pointer_area_size > 0 {
+        if !import_return_pointer_area_size.is_empty() {
+            uwriteln!(self.src,);
+            self.align_area(import_return_pointer_area_align);
             uwrite!(
                 self.src,
-                "\
-                    #[repr(align({import_return_pointer_area_align}))]
-                    struct RetArea([::core::mem::MaybeUninit::<u8>; {import_return_pointer_area_size}]);
+                "struct RetArea([::core::mem::MaybeUninit::<u8>; {import_return_pointer_area_size}]);
                     let mut ret_area = RetArea([::core::mem::MaybeUninit::uninit(); {import_return_pointer_area_size}]);
-",
+", import_return_pointer_area_size = import_return_pointer_area_size.format_term(POINTER_SIZE_EXPRESSION, true)
             );
         }
         self.src.push_str(&String::from(src));

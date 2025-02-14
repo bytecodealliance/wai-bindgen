@@ -1,7 +1,8 @@
 pub use wit_parser::abi::{AbiVariant, WasmSignature, WasmType};
 use wit_parser::{
-    ElementInfo, Enum, Flags, FlagsRepr, Function, Handle, Int, Record, Resolve, Result_, Results,
-    SizeAlign, Tuple, Type, TypeDefKind, TypeId, Variant,
+    align_to_arch, Alignment, ArchitectureSize, ElementInfo, Enum, Flags, FlagsRepr, Function,
+    Handle, Int, Record, Resolve, Result_, Results, SizeAlign, Tuple, Type, TypeDefKind, TypeId,
+    Variant,
 };
 
 // Helper macro for defining instructions without having to have tons of
@@ -86,67 +87,67 @@ def_instruction! {
 
         /// Pops a pointer from the stack and loads a little-endian `i32` from
         /// it, using the specified constant offset.
-        I32Load { offset: i32 } : [1] => [1],
+        I32Load { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `i8` from
         /// it, using the specified constant offset. The value loaded is the
         /// zero-extended to 32-bits
-        I32Load8U { offset: i32 } : [1] => [1],
+        I32Load8U { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `i8` from
         /// it, using the specified constant offset. The value loaded is the
         /// sign-extended to 32-bits
-        I32Load8S { offset: i32 } : [1] => [1],
+        I32Load8S { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `i16` from
         /// it, using the specified constant offset. The value loaded is the
         /// zero-extended to 32-bits
-        I32Load16U { offset: i32 } : [1] => [1],
+        I32Load16U { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `i16` from
         /// it, using the specified constant offset. The value loaded is the
         /// sign-extended to 32-bits
-        I32Load16S { offset: i32 } : [1] => [1],
+        I32Load16S { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `i64` from
         /// it, using the specified constant offset.
-        I64Load { offset: i32 } : [1] => [1],
+        I64Load { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `f32` from
         /// it, using the specified constant offset.
-        F32Load { offset: i32 } : [1] => [1],
+        F32Load { offset: ArchitectureSize } : [1] => [1],
         /// Pops a pointer from the stack and loads a little-endian `f64` from
         /// it, using the specified constant offset.
-        F64Load { offset: i32 } : [1] => [1],
+        F64Load { offset: ArchitectureSize } : [1] => [1],
 
         /// Like `I32Load` or `I64Load`, but for loading pointer values.
-        PointerLoad { offset: i32 } : [1] => [1],
+        PointerLoad { offset: ArchitectureSize } : [1] => [1],
         /// Like `I32Load` or `I64Load`, but for loading array length values.
-        LengthLoad { offset: i32 } : [1] => [1],
+        LengthLoad { offset: ArchitectureSize } : [1] => [1],
 
         /// Pops a pointer from the stack and then an `i32` value.
         /// Stores the value in little-endian at the pointer specified plus the
         /// constant `offset`.
-        I32Store { offset: i32 } : [2] => [0],
+        I32Store { offset: ArchitectureSize } : [2] => [0],
         /// Pops a pointer from the stack and then an `i32` value.
         /// Stores the low 8 bits of the value in little-endian at the pointer
         /// specified plus the constant `offset`.
-        I32Store8 { offset: i32 } : [2] => [0],
+        I32Store8 { offset: ArchitectureSize } : [2] => [0],
         /// Pops a pointer from the stack and then an `i32` value.
         /// Stores the low 16 bits of the value in little-endian at the pointer
         /// specified plus the constant `offset`.
-        I32Store16 { offset: i32 } : [2] => [0],
+        I32Store16 { offset: ArchitectureSize } : [2] => [0],
         /// Pops a pointer from the stack and then an `i64` value.
         /// Stores the value in little-endian at the pointer specified plus the
         /// constant `offset`.
-        I64Store { offset: i32 } : [2] => [0],
+        I64Store { offset: ArchitectureSize } : [2] => [0],
         /// Pops a pointer from the stack and then an `f32` value.
         /// Stores the value in little-endian at the pointer specified plus the
         /// constant `offset`.
-        F32Store { offset: i32 } : [2] => [0],
+        F32Store { offset: ArchitectureSize } : [2] => [0],
         /// Pops a pointer from the stack and then an `f64` value.
         /// Stores the value in little-endian at the pointer specified plus the
         /// constant `offset`.
-        F64Store { offset: i32 } : [2] => [0],
+        F64Store { offset: ArchitectureSize } : [2] => [0],
 
         /// Like `I32Store` or `I64Store`, but for storing pointer values.
-        PointerStore { offset: i32 } : [2] => [0],
+        PointerStore { offset: ArchitectureSize } : [2] => [0],
         /// Like `I32Store` or `I64Store`, but for storing array length values.
-        LengthStore { offset: i32 } : [2] => [0],
+        LengthStore { offset: ArchitectureSize } : [2] => [0],
 
         // Scalar lifting/lowering
 
@@ -517,8 +518,8 @@ def_instruction! {
         /// Pushes the returned pointer onto the stack.
         Malloc {
             realloc: &'static str,
-            size: usize,
-            align: usize,
+            size: ArchitectureSize,
+            align: Alignment,
         } : [0] => [1],
 
         /// Used exclusively for guest-code generation this indicates that
@@ -527,8 +528,8 @@ def_instruction! {
         ///
         /// This will pop a pointer from the stack and push nothing.
         GuestDeallocate {
-            size: usize,
-            align: usize,
+            size: ArchitectureSize,
+            align: Alignment,
         } : [1] => [0],
 
         /// Used exclusively for guest-code generation this indicates that
@@ -561,13 +562,13 @@ def_instruction! {
         /// This cannot be allocated on the (shadow-)stack since it needs to
         /// remain valid until the callee has finished using the buffers, which
         /// may be after we pop the current stack frame.
-        AsyncMalloc { size: usize, align: usize } : [0] => [1],
+        AsyncMalloc { size: ArchitectureSize, align: Alignment } : [0] => [1],
 
         /// Call an async-lowered import.
         ///
         /// `size` and `align` are used to deallocate the parameter area
         /// allocated using `AsyncMalloc` after the callee task returns a value.
-        AsyncCallWasm { name: &'a str, size: usize, align: usize } : [2] => [0],
+        AsyncCallWasm { name: &'a str, size: ArchitectureSize, align: Alignment } : [2] => [0],
 
         /// Generate code to run after `CallInterface` for an async-lifted export.
         ///
@@ -693,7 +694,7 @@ pub trait Bindgen {
     /// Gets a operand reference to the return pointer area.
     ///
     /// The provided size and alignment is for the function's return type.
-    fn return_pointer(&mut self, size: usize, align: usize) -> Self::Operand;
+    fn return_pointer(&mut self, size: ArchitectureSize, align: Alignment) -> Self::Operand;
 
     /// Enters a new block of code to generate code for.
     ///
@@ -772,7 +773,7 @@ pub fn lower_to_memory<B: Bindgen>(
         true,
     );
     generator.stack.push(value);
-    generator.write_to_memory(ty, address, 0);
+    generator.write_to_memory(ty, address, Default::default());
 }
 
 pub fn lift_from_memory<B: Bindgen>(
@@ -789,7 +790,7 @@ pub fn lift_from_memory<B: Bindgen>(
         bindgen,
         true,
     );
-    generator.read_from_memory(ty, address, 0);
+    generator.read_from_memory(ty, address, Default::default());
     generator.stack.pop().unwrap()
 }
 
@@ -905,12 +906,12 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                 }
 
                 let lower_to_memory = |self_: &mut Self, ptr: B::Operand| {
-                    let mut offset = 0usize;
+                    let mut offset = ArchitectureSize::default();
                     for (nth, (_, ty)) in func.params.iter().enumerate() {
                         self_.emit(&Instruction::GetArg { nth });
-                        offset = align_to(offset, self_.bindgen.sizes().align(ty).align_wasm32());
-                        self_.write_to_memory(ty, ptr.clone(), offset as i32);
-                        offset += self_.bindgen.sizes().size(ty).size_wasm32();
+                        offset = align_to_arch(offset, self_.bindgen.sizes().align(ty));
+                        self_.write_to_memory(ty, ptr.clone(), offset);
+                        offset += self_.bindgen.sizes().size(ty);
                     }
 
                     self_.stack.push(ptr);
@@ -921,10 +922,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         .bindgen
                         .sizes()
                         .record(func.params.iter().map(|(_, ty)| ty));
-                    self.emit(&Instruction::AsyncMalloc {
-                        size: size.size_wasm32(),
-                        align: align.align_wasm32(),
-                    });
+                    self.emit(&Instruction::AsyncMalloc { size, align });
                     let ptr = self.stack.pop().unwrap();
                     lower_to_memory(self, ptr);
                     Some((size, align))
@@ -941,23 +939,21 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         // ... otherwise if parameters are indirect space is
                         // allocated from them and each argument is lowered
                         // individually into memory.
-                        let info = self
+                        let ElementInfo { size, align } = self
                             .bindgen
                             .sizes()
                             .record(func.params.iter().map(|t| &t.1));
                         let ptr = match self.variant {
                             // When a wasm module calls an import it will provide
                             // space that isn't explicitly deallocated.
-                            AbiVariant::GuestImport => self
-                                .bindgen
-                                .return_pointer(info.size.size_wasm32(), info.align.align_wasm32()),
+                            AbiVariant::GuestImport => self.bindgen.return_pointer(size, align),
                             // When calling a wasm module from the outside, though,
                             // malloc needs to be called.
                             AbiVariant::GuestExport => {
                                 self.emit(&Instruction::Malloc {
                                     realloc: "cabi_realloc",
-                                    size: info.size.size_wasm32(),
-                                    align: info.align.align_wasm32(),
+                                    size,
+                                    align,
                                 });
                                 self.stack.pop().unwrap()
                             }
@@ -978,10 +974,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                     if let Some((params_size, params_align)) = params_size_align {
                         let ElementInfo { size, align } =
                             self.bindgen.sizes().record(func.results.iter_types());
-                        self.emit(&Instruction::AsyncMalloc {
-                            size: size.size_wasm32(),
-                            align: align.align_wasm32(),
-                        });
+                        self.emit(&Instruction::AsyncMalloc { size, align });
                         let ptr = self.stack.pop().unwrap();
                         self.return_pointer = Some(ptr.clone());
                         self.stack.push(ptr);
@@ -989,16 +982,15 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         assert_eq!(self.stack.len(), 2);
                         self.emit(&Instruction::AsyncCallWasm {
                             name: &format!("[async]{}", func.name),
-                            size: params_size.size_wasm32(),
-                            align: params_align.align_wasm32(),
+                            size: params_size,
+                            align: params_align,
                         });
                         Some((size, align))
                     } else {
                         if self.variant == AbiVariant::GuestImport && sig.retptr {
-                            let info = self.bindgen.sizes().params(func.results.iter_types());
-                            let ptr = self
-                                .bindgen
-                                .return_pointer(info.size.size_wasm32(), info.align.align_wasm32());
+                            let ElementInfo { size, align } =
+                                self.bindgen.sizes().params(func.results.iter_types());
+                            let ptr = self.bindgen.return_pointer(size, align);
                             self.return_pointer = Some(ptr.clone());
                             self.stack.push(ptr);
                         }
@@ -1042,17 +1034,18 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         }
                     };
 
-                    self.read_results_from_memory(&func.results, ptr.clone(), 0);
+                    self.read_results_from_memory(
+                        &func.results,
+                        ptr.clone(),
+                        ArchitectureSize::default(),
+                    );
                     self.emit(&Instruction::Flush {
                         amt: func.results.len(),
                     });
 
                     if let Some((size, align)) = dealloc_size_align {
                         self.stack.push(ptr);
-                        self.emit(&Instruction::GuestDeallocate {
-                            size: size.size_wasm32(),
-                            align: align.align_wasm32(),
-                        });
+                        self.emit(&Instruction::GuestDeallocate { size, align });
                     }
                 }
 
@@ -1067,12 +1060,12 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                 }
 
                 let read_from_memory = |self_: &mut Self| {
-                    let mut offset = 0usize;
+                    let mut offset = ArchitectureSize::default();
                     let ptr = self_.stack.pop().unwrap();
                     for (_, ty) in func.params.iter() {
-                        offset = align_to(offset, self_.bindgen.sizes().align(ty).align_wasm32());
-                        self_.read_from_memory(ty, ptr.clone(), offset as i32);
-                        offset += self_.bindgen.sizes().size(ty).size_wasm32();
+                        offset = align_to_arch(offset, self_.bindgen.sizes().align(ty));
+                        self_.read_from_memory(ty, ptr.clone(), offset);
+                        offset += self_.bindgen.sizes().size(ty);
                     }
                 };
 
@@ -1122,15 +1115,12 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                 // deallocate it.
                 if let AbiVariant::GuestExport = self.variant {
                     if sig.indirect_params && !self.async_ {
-                        let info = self
+                        let ElementInfo { size, align } = self
                             .bindgen
                             .sizes()
                             .record(func.params.iter().map(|t| &t.1));
                         self.emit(&Instruction::GetArg { nth: 0 });
-                        self.emit(&Instruction::GuestDeallocate {
-                            size: info.size.size_wasm32(),
-                            align: info.align.align_wasm32(),
-                        });
+                        self.emit(&Instruction::GuestDeallocate { size, align });
                     }
                 }
 
@@ -1158,7 +1148,11 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                                 nth: sig.params.len() - 1,
                             });
                             let ptr = self.stack.pop().unwrap();
-                            self.write_params_to_memory(func.results.iter_types(), ptr, 0);
+                            self.write_params_to_memory(
+                                func.results.iter_types(),
+                                ptr,
+                                Default::default(),
+                            );
                         }
 
                         // For a guest import this is a function defined in
@@ -1167,11 +1161,14 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         // (statically) and then write the result into that
                         // memory, returning the pointer at the end.
                         AbiVariant::GuestExport => {
-                            let info = self.bindgen.sizes().params(func.results.iter_types());
-                            let ptr = self
-                                .bindgen
-                                .return_pointer(info.size.size_wasm32(), info.align.align_wasm32());
-                            self.write_params_to_memory(func.results.iter_types(), ptr.clone(), 0);
+                            let ElementInfo { size, align } =
+                                self.bindgen.sizes().params(func.results.iter_types());
+                            let ptr = self.bindgen.return_pointer(size, align);
+                            self.write_params_to_memory(
+                                func.results.iter_types(),
+                                ptr.clone(),
+                                Default::default(),
+                            );
                             self.stack.push(ptr);
                         }
 
@@ -1227,8 +1224,6 @@ impl<'a, B: Bindgen> Generator<'a, B> {
             .sizes()
             .field_offsets(func.results.iter_types())
         {
-            let offset = offset.size_wasm32();
-            let offset = i32::try_from(offset).unwrap();
             self.deallocate(ty, addr.clone(), offset);
         }
         self.emit(&Instruction::Return { func, amt: 0 });
@@ -1314,7 +1309,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         self.emit(&IterElem { element });
                         self.emit(&IterBasePointer);
                         let addr = self.stack.pop().unwrap();
-                        self.write_to_memory(element, addr, 0);
+                        self.write_to_memory(element, addr, Default::default());
                         self.finish_block(0);
                         self.emit(&ListLower { element, realloc });
                     }
@@ -1512,7 +1507,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                         self.push_block();
                         self.emit(&IterBasePointer);
                         let addr = self.stack.pop().unwrap();
-                        self.read_from_memory(element, addr, 0);
+                        self.read_from_memory(element, addr, Default::default());
                         self.finish_block(1);
                         self.emit(&ListLift { element, ty: id });
                     }
@@ -1657,7 +1652,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         }
     }
 
-    fn write_to_memory(&mut self, ty: &Type, addr: B::Operand, offset: i32) {
+    fn write_to_memory(&mut self, ty: &Type, addr: B::Operand, offset: ArchitectureSize) {
         use Instruction::*;
 
         match *ty {
@@ -1717,7 +1712,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                             for i in (0..n).rev() {
                                 self.stack.push(addr.clone());
                                 self.emit(&I32Store {
-                                    offset: offset + (i as i32) * 4,
+                                    offset: offset.add_bytes(i * 4),
                                 });
                             }
                         }
@@ -1781,24 +1776,19 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         &mut self,
         params: impl IntoIterator<Item = &'b Type> + ExactSizeIterator,
         addr: B::Operand,
-        offset: i32,
+        offset: ArchitectureSize,
     ) {
         self.write_fields_to_memory(params, addr, offset);
     }
 
     fn write_variant_arms_to_memory<'b>(
         &mut self,
-        offset: i32,
+        offset: ArchitectureSize,
         addr: B::Operand,
         tag: Int,
         cases: impl IntoIterator<Item = Option<&'b Type>> + Clone,
     ) {
-        let payload_offset = offset
-            + (self
-                .bindgen
-                .sizes()
-                .payload_offset(tag, cases.clone())
-                .size_wasm32() as i32);
+        let payload_offset = offset + (self.bindgen.sizes().payload_offset(tag, cases.clone()));
         for (i, ty) in cases.into_iter().enumerate() {
             self.push_block();
             self.emit(&Instruction::VariantPayloadName);
@@ -1814,13 +1804,15 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         }
     }
 
-    fn write_list_to_memory(&mut self, ty: &Type, addr: B::Operand, offset: i32) {
+    fn write_list_to_memory(&mut self, ty: &Type, addr: B::Operand, offset: ArchitectureSize) {
         // After lowering the list there's two i32 values on the stack
         // which we write into memory, writing the pointer into the low address
         // and the length into the high address.
         self.lower(ty);
         self.stack.push(addr.clone());
-        self.emit(&Instruction::LengthStore { offset: offset + 4 });
+        self.emit(&Instruction::LengthStore {
+            offset: offset + self.bindgen.sizes().align(ty).into(),
+        });
         self.stack.push(addr);
         self.emit(&Instruction::PointerStore { offset });
     }
@@ -1829,7 +1821,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         &mut self,
         tys: impl IntoIterator<Item = &'b Type> + ExactSizeIterator,
         addr: B::Operand,
-        offset: i32,
+        offset: ArchitectureSize,
     ) {
         let fields = self
             .stack
@@ -1843,8 +1835,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
             .zip(fields)
         {
             self.stack.push(op);
-            let field_offset = field_offset.size_wasm32();
-            self.write_to_memory(ty, addr.clone(), offset + (field_offset as i32));
+            self.write_to_memory(ty, addr.clone(), offset + (field_offset));
         }
     }
 
@@ -1854,7 +1845,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         self.emit(instr);
     }
 
-    fn read_from_memory(&mut self, ty: &Type, addr: B::Operand, offset: i32) {
+    fn read_from_memory(&mut self, ty: &Type, addr: B::Operand, offset: ArchitectureSize) {
         use Instruction::*;
 
         match *ty {
@@ -1914,7 +1905,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                             for i in 0..n {
                                 self.stack.push(addr.clone());
                                 self.emit(&I32Load {
-                                    offset: offset + (i as i32) * 4,
+                                    offset: offset.add_bytes(i * 4),
                                 });
                             }
                         }
@@ -1966,25 +1957,25 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         }
     }
 
-    fn read_results_from_memory(&mut self, results: &Results, addr: B::Operand, offset: i32) {
+    fn read_results_from_memory(
+        &mut self,
+        results: &Results,
+        addr: B::Operand,
+        offset: ArchitectureSize,
+    ) {
         self.read_fields_from_memory(results.iter_types(), addr, offset)
     }
 
     fn read_variant_arms_from_memory<'b>(
         &mut self,
-        offset: i32,
+        offset: ArchitectureSize,
         addr: B::Operand,
         tag: Int,
         cases: impl IntoIterator<Item = Option<&'b Type>> + Clone,
     ) {
         self.stack.push(addr.clone());
         self.load_intrepr(offset, tag);
-        let payload_offset = offset
-            + (self
-                .bindgen
-                .sizes()
-                .payload_offset(tag, cases.clone())
-                .size_wasm32() as i32);
+        let payload_offset = offset + (self.bindgen.sizes().payload_offset(tag, cases.clone()));
         for ty in cases {
             self.push_block();
             if let Some(ty) = ty {
@@ -1994,13 +1985,15 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         }
     }
 
-    fn read_list_from_memory(&mut self, ty: &Type, addr: B::Operand, offset: i32) {
+    fn read_list_from_memory(&mut self, ty: &Type, addr: B::Operand, offset: ArchitectureSize) {
         // Read the pointer/len and then perform the standard lifting
         // proceses.
         self.stack.push(addr.clone());
         self.emit(&Instruction::PointerLoad { offset });
         self.stack.push(addr);
-        self.emit(&Instruction::LengthLoad { offset: offset + 4 });
+        self.emit(&Instruction::LengthLoad {
+            offset: offset + self.bindgen.sizes().align(ty).into(),
+        });
         self.lift(ty);
     }
 
@@ -2008,11 +2001,10 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         &mut self,
         tys: impl IntoIterator<Item = &'b Type>,
         addr: B::Operand,
-        offset: i32,
+        offset: ArchitectureSize,
     ) {
         for (field_offset, ty) in self.bindgen.sizes().field_offsets(tys).iter() {
-            let field_offset = field_offset.size_wasm32();
-            self.read_from_memory(ty, addr.clone(), offset + (field_offset as i32));
+            self.read_from_memory(ty, addr.clone(), offset + (*field_offset));
         }
     }
 
@@ -2022,7 +2014,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         self.lift(ty);
     }
 
-    fn load_intrepr(&mut self, offset: i32, repr: Int) {
+    fn load_intrepr(&mut self, offset: ArchitectureSize, repr: Int) {
         self.emit(&match repr {
             Int::U64 => Instruction::I64Load { offset },
             Int::U32 => Instruction::I32Load { offset },
@@ -2031,7 +2023,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         });
     }
 
-    fn store_intrepr(&mut self, offset: i32, repr: Int) {
+    fn store_intrepr(&mut self, offset: ArchitectureSize, repr: Int) {
         self.emit(&match repr {
             Int::U64 => Instruction::I64Store { offset },
             Int::U32 => Instruction::I32Store { offset },
@@ -2040,7 +2032,7 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         });
     }
 
-    fn deallocate(&mut self, ty: &Type, addr: B::Operand, offset: i32) {
+    fn deallocate(&mut self, ty: &Type, addr: B::Operand, offset: ArchitectureSize) {
         use Instruction::*;
 
         // No need to execute any instructions if this type itself doesn't
@@ -2054,7 +2046,9 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                 self.stack.push(addr.clone());
                 self.emit(&Instruction::PointerLoad { offset });
                 self.stack.push(addr);
-                self.emit(&Instruction::LengthLoad { offset: offset + 4 });
+                self.emit(&Instruction::LengthLoad {
+                    offset: offset + self.bindgen.sizes().align(ty).into(),
+                });
                 self.emit(&Instruction::GuestDeallocateString);
             }
 
@@ -2078,12 +2072,14 @@ impl<'a, B: Bindgen> Generator<'a, B> {
                     self.stack.push(addr.clone());
                     self.emit(&Instruction::PointerLoad { offset });
                     self.stack.push(addr);
-                    self.emit(&Instruction::LengthLoad { offset: offset + 4 });
+                    self.emit(&Instruction::LengthLoad {
+                        offset: offset + self.bindgen.sizes().align(ty).into(),
+                    });
 
                     self.push_block();
                     self.emit(&IterBasePointer);
                     let elemaddr = self.stack.pop().unwrap();
-                    self.deallocate(element, elemaddr, 0);
+                    self.deallocate(element, elemaddr, Default::default());
                     self.finish_block(0);
 
                     self.emit(&Instruction::GuestDeallocateList { element });
@@ -2145,19 +2141,14 @@ impl<'a, B: Bindgen> Generator<'a, B> {
 
     fn deallocate_variant<'b>(
         &mut self,
-        offset: i32,
+        offset: ArchitectureSize,
         addr: B::Operand,
         tag: Int,
         cases: impl IntoIterator<Item = Option<&'b Type>> + Clone,
     ) {
         self.stack.push(addr.clone());
         self.load_intrepr(offset, tag);
-        let payload_offset = offset
-            + (self
-                .bindgen
-                .sizes()
-                .payload_offset(tag, cases.clone())
-                .size_wasm32() as i32);
+        let payload_offset = offset + (self.bindgen.sizes().payload_offset(tag, cases.clone()));
         for ty in cases {
             self.push_block();
             if let Some(ty) = ty {
@@ -2167,10 +2158,9 @@ impl<'a, B: Bindgen> Generator<'a, B> {
         }
     }
 
-    fn deallocate_fields(&mut self, tys: &[Type], addr: B::Operand, offset: i32) {
+    fn deallocate_fields(&mut self, tys: &[Type], addr: B::Operand, offset: ArchitectureSize) {
         for (field_offset, ty) in self.bindgen.sizes().field_offsets(tys) {
-            let field_offset = field_offset.size_wasm32();
-            self.deallocate(ty, addr.clone(), offset + (field_offset as i32));
+            self.deallocate(ty, addr.clone(), offset + (field_offset));
         }
     }
 }
@@ -2229,8 +2219,4 @@ fn cast(from: WasmType, to: WasmType) -> Bitcast {
             unreachable!("Don't know how to bitcast from {:?} to {:?}", from, to);
         }
     }
-}
-
-fn align_to(val: usize, align: usize) -> usize {
-    (val + align - 1) & !(align - 1)
 }

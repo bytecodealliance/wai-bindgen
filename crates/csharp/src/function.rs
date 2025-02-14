@@ -8,7 +8,10 @@ use std::ops::Deref;
 use wit_bindgen_core::abi::{Bindgen, Bitcast, Instruction};
 use wit_bindgen_core::{uwrite, uwriteln, Direction, Ns};
 use wit_parser::abi::WasmType;
-use wit_parser::{Docs, FunctionKind, Handle, Resolve, SizeAlign, Type, TypeDefKind, TypeId};
+use wit_parser::{
+    Alignment, ArchitectureSize, Docs, FunctionKind, Handle, Resolve, SizeAlign, Type, TypeDefKind,
+    TypeId,
+};
 
 /// FunctionBindgen generates the C# code for calling functions defined in wit
 pub(crate) struct FunctionBindgen<'a, 'b> {
@@ -397,22 +400,22 @@ impl Bindgen for FunctionBindgen<'_, '_> {
             })),
             Instruction::I32Load { offset }
             | Instruction::PointerLoad { offset }
-            | Instruction::LengthLoad { offset } => results.push(format!("BitConverter.ToInt32(new Span<byte>((void*)({} + {offset}), 4))",operands[0])),
-            Instruction::I32Load8U { offset } => results.push(format!("new Span<byte>((void*)({} + {offset}), 1)[0]",operands[0])),
-            Instruction::I32Load8S { offset } => results.push(format!("(sbyte)new Span<byte>((void*)({} + {offset}), 1)[0]",operands[0])),
-            Instruction::I32Load16U { offset } => results.push(format!("BitConverter.ToUInt16(new Span<byte>((void*)({} + {offset}), 2))",operands[0])),
-            Instruction::I32Load16S { offset } => results.push(format!("BitConverter.ToInt16(new Span<byte>((void*)({} + {offset}), 2))",operands[0])),
-            Instruction::I64Load { offset } => results.push(format!("BitConverter.ToInt64(new Span<byte>((void*)({} + {offset}), 8))",operands[0])),
-            Instruction::F32Load { offset } => results.push(format!("BitConverter.ToSingle(new Span<byte>((void*)({} + {offset}), 4))",operands[0])),
-            Instruction::F64Load { offset } => results.push(format!("BitConverter.ToDouble(new Span<byte>((void*)({} + {offset}), 8))",operands[0])),
+            | Instruction::LengthLoad { offset } => results.push(format!("BitConverter.ToInt32(new Span<byte>((void*)({} + {offset}), 4))",operands[0],offset = offset.size_wasm32())),
+            Instruction::I32Load8U { offset } => results.push(format!("new Span<byte>((void*)({} + {offset}), 1)[0]",operands[0],offset = offset.size_wasm32())),
+            Instruction::I32Load8S { offset } => results.push(format!("(sbyte)new Span<byte>((void*)({} + {offset}), 1)[0]",operands[0],offset = offset.size_wasm32())),
+            Instruction::I32Load16U { offset } => results.push(format!("BitConverter.ToUInt16(new Span<byte>((void*)({} + {offset}), 2))",operands[0],offset = offset.size_wasm32())),
+            Instruction::I32Load16S { offset } => results.push(format!("BitConverter.ToInt16(new Span<byte>((void*)({} + {offset}), 2))",operands[0],offset = offset.size_wasm32())),
+            Instruction::I64Load { offset } => results.push(format!("BitConverter.ToInt64(new Span<byte>((void*)({} + {offset}), 8))",operands[0],offset = offset.size_wasm32())),
+            Instruction::F32Load { offset } => results.push(format!("BitConverter.ToSingle(new Span<byte>((void*)({} + {offset}), 4))",operands[0],offset = offset.size_wasm32())),
+            Instruction::F64Load { offset } => results.push(format!("BitConverter.ToDouble(new Span<byte>((void*)({} + {offset}), 8))",operands[0],offset = offset.size_wasm32())),
             Instruction::I32Store { offset }
             | Instruction::PointerStore { offset }
-            | Instruction::LengthStore { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 4), {});", operands[1], operands[0]),
-            Instruction::I32Store8 { offset } => uwriteln!(self.src, "*(byte*)({} + {offset}) = (byte){};", operands[1], operands[0]),
-            Instruction::I32Store16 { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 2), (short){});", operands[1], operands[0]),
-            Instruction::I64Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 8), unchecked((long){}));", operands[1], operands[0]),
-            Instruction::F32Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 4), unchecked((float){}));", operands[1], operands[0]),
-            Instruction::F64Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 8), unchecked((double){}));", operands[1], operands[0]),
+            | Instruction::LengthStore { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 4), {});", operands[1], operands[0],offset = offset.size_wasm32()),
+            Instruction::I32Store8 { offset } => uwriteln!(self.src, "*(byte*)({} + {offset}) = (byte){};", operands[1], operands[0],offset = offset.size_wasm32()),
+            Instruction::I32Store16 { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 2), (short){});", operands[1], operands[0],offset = offset.size_wasm32()),
+            Instruction::I64Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 8), unchecked((long){}));", operands[1], operands[0],offset = offset.size_wasm32()),
+            Instruction::F32Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 4), unchecked((float){}));", operands[1], operands[0],offset = offset.size_wasm32()),
+            Instruction::F64Store { offset } => uwriteln!(self.src, "BitConverter.TryWriteBytes(new Span<byte>((void*)({} + {offset}), 8), unchecked((double){}));", operands[1], operands[0],offset = offset.size_wasm32()),
 
             Instruction::I64FromU64 => results.push(format!("unchecked((long)({}))", operands[0])),
             Instruction::I32FromChar => results.push(format!("((int){})", operands[0])),
@@ -1278,15 +1281,16 @@ impl Bindgen for FunctionBindgen<'_, '_> {
         }
     }
 
-    fn return_pointer(&mut self, size: usize, align: usize) -> String {
+    fn return_pointer(&mut self, size: ArchitectureSize, align: Alignment) -> String {
         let ptr = self.locals.tmp("ptr");
 
         match self.interface_gen.direction {
             Direction::Import => {
                 self.import_return_pointer_area_size =
-                    self.import_return_pointer_area_size.max(size);
-                self.import_return_pointer_area_align =
-                    self.import_return_pointer_area_align.max(align);
+                    self.import_return_pointer_area_size.max(size.size_wasm32());
+                self.import_return_pointer_area_align = self
+                    .import_return_pointer_area_align
+                    .max(align.align_wasm32());
                 let (array_size, element_type) = crate::world_generator::dotnet_aligned_array(
                     self.import_return_pointer_area_size,
                     self.import_return_pointer_area_align,
@@ -1302,16 +1306,23 @@ impl Bindgen for FunctionBindgen<'_, '_> {
                     "
                     var {ret_area} = stackalloc {element_type}[{array_size}+1];
                     var {ptr} = ((int){ret_area}) + ({align} - 1) & -{align};
-                    "
+                    ",
+                    align = align.align_wasm32()
                 );
                 format!("{ptr}")
             }
             Direction::Export => {
                 // exports need their return area to be live until the post-return call.
-                self.interface_gen.csharp_gen.return_area_size =
-                    self.interface_gen.csharp_gen.return_area_size.max(size);
-                self.interface_gen.csharp_gen.return_area_align =
-                    self.interface_gen.csharp_gen.return_area_align.max(align);
+                self.interface_gen.csharp_gen.return_area_size = self
+                    .interface_gen
+                    .csharp_gen
+                    .return_area_size
+                    .max(size.size_wasm32());
+                self.interface_gen.csharp_gen.return_area_align = self
+                    .interface_gen
+                    .csharp_gen
+                    .return_area_align
+                    .max(align.align_wasm32());
 
                 uwrite!(
                     self.src,

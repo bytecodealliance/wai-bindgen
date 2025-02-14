@@ -33,11 +33,11 @@ prettyplease = "0.2.20"
 syn = { version = "2.0.89", features = ["printing"] }
 futures = "0.3.31"
 
-wasmparser = "0.225.0"
-wasm-encoder = "0.225.0"
-wasm-metadata = "0.225.0"
-wit-parser = "0.225.0"
-wit-component = "0.225.0"
+wasmparser = { git = "https://github.com/bytecodealliance/wasm-tools.git" }
+wasm-encoder = { git = "https://github.com/bytecodealliance/wasm-tools.git" }
+wasm-metadata = { git = "https://github.com/bytecodealliance/wasm-tools.git" }
+wit-parser = { git = "https://github.com/bytecodealliance/wasm-tools.git" }
+wit-component = { git = "https://github.com/bytecodealliance/wasm-tools.git" }
 
 wit-bindgen-core = { path = 'crates/core', version = '0.39.0' }
 wit-bindgen-c = { path = 'crates/c', version = '0.39.0' }
